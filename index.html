@@ -1,0 +1,1895 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pokémon TCG Pocket - Ultimate Family Edition</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Kanit -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            font-family: 'Kanit', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+
+        /* Holographic Card Shimmer */
+        .card-holo {
+            position: relative;
+            overflow: hidden;
+        }
+        .card-holo::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                115deg,
+                transparent 20%,
+                rgba(255, 255, 255, 0.4) 40%,
+                rgba(255, 0, 128, 0.3) 45%,
+                rgba(0, 255, 255, 0.3) 50%,
+                rgba(255, 255, 0, 0.3) 55%,
+                transparent 80%
+            );
+            transform: rotate(30deg);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .card-holo:hover::after {
+            opacity: 1;
+            animation: holoShine 2s infinite linear;
+        }
+
+        @keyframes holoShine {
+            0% { transform: translateY(-30%) rotate(30deg); }
+            100% { transform: translateY(30%) rotate(30deg); }
+        }
+
+        /* Foil Pack Design */
+        .foil-pack {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 3px solid #f59e0b;
+            box-shadow: 0 20px 50px rgba(245, 158, 11, 0.4), inset 0 0 15px rgba(255, 255, 255, 0.2);
+            position: relative;
+            cursor: pointer;
+            touch-action: none;
+        }
+        .tear-line {
+            border-bottom: 3px dashed #ef4444;
+            position: relative;
+        }
+        .tear-line::before {
+            content: '✂ ลากสไลด์ หรือ คลิกเพื่อฉีกซอง!';
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ef4444;
+            color: white;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        /* 3D Stack Container & Pure Card Overlay */
+        .card-stack-container {
+            position: relative;
+            width: 270px;
+            height: 380px;
+            margin: 0 auto;
+            touch-action: none;
+            perspective: 1000px;
+        }
+        
+        .pocket-card-pure {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            border-radius: 16px;
+            background: transparent;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8);
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
+            cursor: pointer;
+            will-change: transform, opacity;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Silhouette Card Placeholder */
+        .card-silhouette {
+            background: #0f172a;
+            border: 2px dashed #334155;
+            filter: brightness(0.2) grayscale(1);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+    <!-- Firebase SDKs & Full Cloud Data Management -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAXe_kMdq2ZmHDfy32MiPcVkX5xH2L2wyQ",
+    authDomain: "pokemon-tcg-pocket-7808f.firebaseapp.com",
+    projectId: "pokemon-tcg-pocket-7808f",
+    storageBucket: "pokemon-tcg-pocket-7808f.firebasestorage.app",
+    messagingSenderId: "950861307570",
+    appId: "1:950861307570:web:c9102d15f04430a464b3ab",
+    measurementId: "G-K28GRWD8TL"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // ฟังการอัปเดตข้อมูลภาพรวมเกมบน Cloud (Global App State)
+  window.initCloudSync = function() {
+    // 1. ฟัง Realtime จาก Document รวม "system_config"
+    onSnapshot(doc(db, "app_data", "system_config"), (docSnap) => {
+      if (docSnap.exists()) {
+        const cloudState = docSnap.data();
+        if (cloudState.disabledSets) state.disabledSets = cloudState.disabledSets;
+        if (cloudState.customPrices) state.customPrices = cloudState.customPrices;
+        if (cloudState.quests) state.quests = cloudState.quests;
+        if (cloudState.pendingApprovals) state.pendingApprovals = cloudState.pendingApprovals;
+        if (cloudState.rarityRates) state.rarityRates = cloudState.rarityRates;
+        if (cloudState.refundRates) state.refundRates = cloudState.refundRates;
+        if (cloudState.users) {
+            // ซิงค์รายชื่อและบทบาทของผู้ใช้จาก Cloud
+            cloudState.users.forEach(u => {
+                let existing = state.users.find(x => x.id === u.id);
+                if (existing) {
+                    existing.name = u.name;
+                    existing.role = u.role;
+                    existing.passcode = u.passcode;
+                } else {
+                    state.users.push(u);
+                }
+            });
+        }
+        
+        // อัปเดต UI ปัจจุบัน
+        if (typeof renderQuests === 'function') renderQuests();
+        if (typeof renderLiveSetsUI === 'function') renderLiveSetsUI();
+        if (typeof updateUI === 'function') updateUI();
+      }
+    });
+
+    // 2. ถ้าเข้าสู่ระบบแล้ว ให้ฟัง Realtime ข้อมูลของ User นั้นๆ
+    if (state.currentUser) {
+        onSnapshot(doc(db, "users", state.currentUser.id), (docSnap) => {
+            if (docSnap.exists()) {
+                const uData = docSnap.data();
+                if (uData.coins !== undefined) state.currentUser.coins = uData.coins;
+                if (uData.inventory) state.currentUser.inventory = uData.inventory;
+                if (uData.completedSpecialQuests) state.currentUser.completedSpecialQuests = uData.completedSpecialQuests;
+                if (uData.completedDailyQuests) state.currentUser.completedDailyQuests = uData.completedDailyQuests;
+                if (uData.completedWeeklyQuests) state.currentUser.completedWeeklyQuests = uData.completedWeeklyQuests;
+                if (uData.completedMonthlyQuests) state.currentUser.completedMonthlyQuests = uData.completedMonthlyQuests;
+                updateUI();
+            }
+        });
+    }
+  };
+
+  // โหลดข้อมูลผู้ใช้จาก Cloud
+  window.loadUserData = async function(userId) {
+    try {
+      const docRef = doc(db, "users", userId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        return docSnap.data();
+      } else {
+        const defaultUser = state.users.find(u => u.id === userId);
+        const initialData = { 
+            coins: defaultUser ? defaultUser.coins : 500, 
+            inventory: [],
+            completedSpecialQuests: [],
+            completedDailyQuests: [],
+            completedWeeklyQuests: [],
+            completedMonthlyQuests: []
+        };
+        await setDoc(docRef, initialData);
+        return initialData;
+      }
+    } catch (e) {
+      console.error("Firebase User Load Error:", e);
+      return null;
+    }
+  };
+
+  // เซฟข้อมูลผู้ใช้ลง Cloud
+  window.saveUserData = async function(userId, userData) {
+    try {
+      const docRef = doc(db, "users", userId);
+      await setDoc(docRef, userData, { merge: true });
+    } catch (e) {
+      console.error("Firebase User Save Error:", e);
+    }
+  };
+
+  // เซฟข้อมูลระบบหลังบ้าน (Global State) ลง Cloud
+  window.saveGlobalStateToCloud = async function() {
+    try {
+      const docRef = doc(db, "app_data", "system_config");
+      await setDoc(docRef, {
+        disabledSets: state.disabledSets || [],
+        customPrices: state.customPrices || {},
+        quests: state.quests || [],
+        pendingApprovals: state.pendingApprovals || [],
+        rarityRates: state.rarityRates || {},
+        refundRates: state.refundRates || {},
+        users: state.users.map(u => ({ id: u.id, name: u.name, role: u.role, passcode: u.passcode }))
+      }, { merge: true });
+    } catch (e) {
+      console.error("Firebase Config Save Error:", e);
+    }
+  };
+</script>
+
+    <!-- HEADER / NAVIGATION TOP -->
+    <header class="sticky top-0 z-40 glass-panel border-b border-slate-800 px-4 py-3 shadow-2xl">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('pack-opener')">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-red-600 flex items-center justify-center text-white shadow-lg shadow-amber-500/30">
+                    <i class="fa-solid fa-bolt text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-base md:text-lg tracking-wide bg-gradient-to-r from-amber-400 via-orange-300 to-amber-500 bg-clip-text text-transparent">
+                        POKÉMON TCG <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">POCKET ULTIMATE</span>
+                    </h1>
+                    <p class="text-[10px] text-slate-400">ระบบสุ่มการ์ด & จัดการงานบ้าน (CLOUD SYNCED)</p>
+                </div>
+            </div>
+
+            <div id="user-header-info" class="flex items-center space-x-3"></div>
+        </div>
+    </header>
+
+    <!-- MAIN APP CONTENT -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 relative">
+
+        <!-- AUTH MODAL OVERLAY -->
+        <div id="auth-modal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+            <div class="glass-panel w-full max-w-md p-6 rounded-2xl border border-amber-500/30 shadow-2xl space-y-6">
+                <div class="text-center space-y-2">
+                    <div class="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 mx-auto flex items-center justify-center text-amber-400 text-3xl">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <h2 class="text-2xl font-extrabold text-amber-400">เข้าสู่ระบบ (รหัสผ่านเฉพาะตัว)</h2>
+                    <p class="text-xs text-slate-400">เลือกโปรไฟล์และใส่รหัสผ่านประจำตัวของคุณ</p>
+                </div>
+
+                <div class="space-y-4">
+                    <form onsubmit="event.preventDefault(); handleLogin();" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">เลือกผู้ใช้งานในบ้าน:</label>
+                            <select id="auth-user-select" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-amber-500"></select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">รหัสผ่านประจำตัว:</label>
+                            <input type="password" id="auth-passcode" placeholder="ใส่รหัสผ่านของคุณ" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-amber-500">
+                        </div>
+
+                        <button type="submit" class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-right-to-bracket"></i>
+                            <span>เข้าสู่ระบบ</span>
+                        </button>
+                    </form>
+
+                    <div class="pt-4 border-t border-slate-800 text-center">
+                        <button onclick="toggleNewUserForm()" class="text-xs text-amber-400 hover:underline">+ สร้างสมาชิกใหม่พร้อมรหัสผ่าน</button>
+                    </div>
+
+                    <form id="new-user-form" onsubmit="event.preventDefault(); createNewUser();" class="hidden pt-2 space-y-3 border-t border-slate-800">
+                        <input type="text" id="new-username" placeholder="ชื่อสมาชิกใหม่" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200">
+                        <input type="password" id="new-user-passcode" placeholder="ตั้งรหัสผ่าน 4 หลัก" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200">
+                        <select id="new-user-role" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200">
+                            <option value="user">User (ลูก / สมาชิกทั่วไป)</option>
+                            <option value="admin">General Admin (ผู้ปกครอง)</option>
+                            <option value="superadmin">Super Admin (แอดมินสูงสุด)</option>
+                        </select>
+                        <button type="submit" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-amber-300 rounded-lg">บันทึกผู้ใช้ใหม่</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 1: PACK OPENER (LOCAL SETS) -->
+        <section id="tab-pack-opener" class="tab-content space-y-6">
+            <div class="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <span class="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold rounded-full">
+                            <i class="fa-solid fa-cloud mr-1"></i> CLOUD STORE & PACKS
+                        </span>
+                        <h2 class="text-2xl md:text-3xl font-black text-white mt-1">เลือกชุดแพ็คการ์ดโปเกมอน (เปิดขายเฉพาะที่เปิดใช้งาน)</h2>
+                        <p class="text-xs text-slate-400">สุ่มการ์ดตามอัตราของระบบ การ์ดซ้ำย่อยคืน Coins เข้า Cloud Firestore อัตโนมัติ</p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2">
+                        <input type="text" id="search-set-input" oninput="filterSetsUI()" placeholder="ค้นหาชื่อแพ็ค..." class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                        <select id="filter-series-select" onchange="filterSetsUI()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200">
+                            <option value="ALL">ซีรีส์ทั้งหมด (เฉพาะที่เปิดขาย)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="pack-selection-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[520px] overflow-y-auto pr-2">
+                    <div class="col-span-full text-center py-12 text-amber-400 text-xs animate-pulse">
+                        <i class="fa-solid fa-spinner fa-spin mr-2"></i> กำลังโหลดรายชื่อชุดการ์ด...
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FULL-SCREEN PACK OPENING MODAL OVERLAY -->
+        <div id="pack-stage-modal" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl hidden flex-col items-center justify-center p-4">
+            
+            <!-- STAGE A: FOIL PACK -->
+            <div id="foil-pack-wrap" class="flex flex-col items-center space-y-4 my-auto">
+                <div class="foil-pack w-64 h-96 rounded-2xl flex flex-col justify-between p-4" id="foil-pack-box">
+                    <div class="tear-line py-5" id="foil-tear-zone"></div>
+                    <div class="text-center space-y-2 my-auto">
+                        <img id="selected-pack-logo" class="h-20 mx-auto object-contain drop-shadow-md">
+                        <h3 id="selected-pack-name" class="font-extrabold text-base text-amber-300">BOOSTER PACK</h3>
+                        <p class="text-[10px] text-slate-400">POKÉMON TCG POCKET</p>
+                    </div>
+                    <div class="text-center text-xs text-amber-400 font-semibold py-2 bg-amber-500/10 rounded-lg">
+                        คลิก หรือ ลากสไลด์ที่เส้นประเพื่อฉีกซอง!
+                    </div>
+                </div>
+            </div>
+
+            <!-- STAGE B: STACKED REVEAL CARDS -->
+            <div id="card-reveal-wrap" class="hidden flex flex-col items-center space-y-6 w-full my-auto">
+                <div class="text-center space-y-1">
+                    <h3 class="text-xl font-bold text-amber-400">แตะหรือคลิกการ์ดเพื่อเปิดทีละใบ (<span id="reveal-progress">1</span>/5)</h3>
+                    <p class="text-xs text-slate-400">การ์ดซ้อนกันเป็นชั้น สไลด์เปิดดูทีละใบ</p>
+                </div>
+
+                <div class="card-stack-container perspective-1000" id="card-stack-box"></div>
+
+                <div id="recycled-coins-summary" class="hidden text-xs text-amber-300 font-bold bg-amber-500/10 border border-amber-500/30 px-4 py-2 rounded-xl"></div>
+            </div>
+        </div>
+
+        <!-- TAB 2: MY BINDER -->
+        <section id="tab-binder" class="tab-content hidden space-y-6">
+            <div id="binder-view-packs" class="space-y-4">
+                <div class="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h2 class="text-2xl font-black text-white">สมุดคลังสะสมการ์ด (เลือกแพ็คที่ต้องการตรวจสอบ)</h2>
+                            <p class="text-xs text-slate-400 mt-1">คลิกเลือกกล่องแพ็คการ์ดเพื่อดูสมุดสะสมและการ์ดที่คุณมี</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <input type="text" id="binder-search-input" oninput="filterBinderPacksUI()" placeholder="ค้นหาชื่อแพ็ค..." class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                            <select id="binder-series-select" onchange="filterBinderPacksUI()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-semibold">
+                                <option value="ALL">ซีรีส์ทั้งหมด</option>
+                                <option value="ACTIVE_ONLY">✨ แสดงเฉพาะซีรีส์ที่เปิดขาย</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div id="binder-packs-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[580px] overflow-y-auto pr-2"></div>
+            </div>
+
+            <div id="binder-view-cards" class="hidden space-y-6">
+                <div class="flex items-center justify-between glass-panel p-4 rounded-2xl border border-slate-800">
+                    <button onclick="backToBinderPacks()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold text-xs rounded-xl flex items-center space-x-2">
+                        <i class="fa-solid fa-arrow-left"></i><span>กลับไปเลือกแพ็คอื่น</span>
+                    </button>
+                    <h3 id="binder-active-title" class="font-extrabold text-base text-white">ชื่อแพ็ค</h3>
+                </div>
+
+                <div id="binder-progress-bar" class="glass-panel p-4 rounded-2xl border border-slate-800 flex justify-between items-center text-xs"></div>
+                <div id="binder-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-[500px] overflow-y-auto pr-2"></div>
+            </div>
+        </section>
+
+        <!-- TAB 3: QUESTS -->
+        <section id="tab-quests" class="tab-content hidden space-y-6">
+            <div class="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-black text-amber-400">ภารกิจสะสม Coins (House Quests)</h2>
+                        <p class="text-xs text-slate-400">ทำกิจกรรมงานบ้าน ส่งแอดมินอนุมัติเพื่อรับ Coins ฟรี!</p>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <label class="text-xs font-bold text-slate-300 whitespace-nowrap"><i class="fa-solid fa-filter mr-1"></i> กรองประเภท:</label>
+                        <select id="quest-filter-select" onchange="filterQuests(this.value)" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-500">
+                            <option value="all">✨ แสดงภารกิจทั้งหมด</option>
+                            <option value="special">⭐ กิจกรรมพิเศษ (ทำได้ครั้งเดียว)</option>
+                            <option value="daily">📅 รายวัน</option>
+                            <option value="weekly">📆 รายสัปดาห์</option>
+                            <option value="monthly">🗓️ รายเดือน</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="quests-list" class="space-y-3 pt-2"></div>
+            </div>
+        </section>
+
+        <!-- TAB 4: ADMIN HUB & STORE MANAGER -->
+        <section id="tab-admin" class="tab-content hidden space-y-6">
+            <div class="glass-panel p-6 rounded-3xl border border-amber-500/30 space-y-6">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                    <div>
+                        <h2 class="text-2xl font-black text-amber-400"><i class="fa-solid fa-user-shield mr-2"></i> ระบบหลังบ้าน & ตั้งค่าร้านค้า</h2>
+                        <p class="text-xs text-slate-400">สิทธิ์ปัจจุบัน: <span id="admin-role-txt" class="text-amber-300 font-bold"></span></p>
+                    </div>
+                </div>
+
+                <!-- 📦 GROUP 1: STORE & RATES MANAGER -->
+                <div id="admin-group-store" class="space-y-6 hidden">
+                    <div class="glass-panel p-5 rounded-2xl border border-amber-500/30 space-y-4 bg-amber-500/5">
+                        <h3 class="text-sm font-extrabold text-amber-300 flex items-center">
+                            <i class="fa-solid fa-store mr-2 text-amber-400"></i> กลุ่มที่ 1: จัดการร้านค้า, อัตราสุ่ม (Drop Rates) & % คืนเงินย่อยการ์ด
+                        </h3>
+                        <p class="text-[11px] text-slate-400">ตั้งราคาซอง, เปิด/ปิดการขาย, ปรับอัตราสุ่มการ์ด และตั้งค่าเปอร์เซ็นต์คืนเงินจากการ์ดซ้ำ</p>
+                    </div>
+
+                    <div id="admin-store-controls" class="space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
+                            <div>
+                                <h4 class="text-xs font-bold text-amber-400"><i class="fa-solid fa-box-open mr-1"></i> จัดการแพ็คการ์ดในร้านค้า</h4>
+                                <p class="text-[10px] text-slate-400">ค้นหาชุดการ์ด หรือเปิด/ปิดการขายทั้งหมดได้ทันที</p>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <input type="text" id="admin-store-search" oninput="renderStoreManagerBySeries()" placeholder="ค้นหาชุดการ์ดในร้าน..." class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200">
+                                <button onclick="toggleAllSetsStore(true)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow whitespace-nowrap">
+                                    <i class="fa-solid fa-check-double mr-1"></i> เปิดขายทั้งหมด
+                                </button>
+                                <button onclick="toggleAllSetsStore(false)" class="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl shadow whitespace-nowrap">
+                                    <i class="fa-solid fa-ban mr-1"></i> ปิดขายทั้งหมด
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="admin-store-series-groups" class="space-y-6"></div>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-2xl space-y-4 border border-slate-800">
+                        <div class="space-y-1">
+                            <h4 class="text-xs font-bold text-amber-400"><i class="fa-solid fa-dice mr-1"></i> ตั้งค่าอัตราสุ่มความหายาก (Drop Rates - 18 ระดับ)</h4>
+                            <p class="text-[11px] text-slate-400">กำหนดเปอร์เซ็นต์ของแต่ละระดับ ผลรวมต้องเท่ากับ 100%</p>
+                        </div>
+                        <div id="sa-rarity-rates-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-96 overflow-y-auto pr-1"></div>
+                        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-700 pt-3">
+                            <div class="text-xs">รวมอัตรา: <span id="sa-rarity-total" class="font-black text-amber-400">100%</span></div>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="autoBalanceRarityRates()" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg"><i class="fa-solid fa-scale-balanced mr-1"></i> ปรับสมดุล 100% อัตโนมัติ</button>
+                                <button onclick="resetRarityRates()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-lg">ค่าเริ่มต้น</button>
+                                <button id="sa-rarity-save-btn" onclick="saveRarityRates()" class="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg">บันทึกอัตราสุ่ม</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-2xl space-y-4 border border-slate-800">
+                        <div class="space-y-1">
+                            <h4 class="text-xs font-bold text-amber-400"><i class="fa-solid fa-arrows-rotate mr-1"></i> ตั้งค่า % คืนเงินจากการ์ดซ้ำ (Recycle Refunds - 18 ระดับ)</h4>
+                            <p class="text-[11px] text-slate-400">กำหนดเปอร์เซ็นต์การคืนเงินเทียบกับราคาซอง ป้องกันปัญหาย่อยการ์ดทั่วไปแล้วได้เงินเกินราคาซอง</p>
+                        </div>
+                        <div id="sa-refund-rates-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-96 overflow-y-auto pr-1"></div>
+                        <div class="flex justify-end gap-2 border-t border-slate-700 pt-3">
+                            <button onclick="resetRefundRates()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-lg">ค่าเริ่มต้น</button>
+                            <button onclick="saveRefundRates()" class="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg">บันทึก % การคืนเงิน</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 📋 GROUP 2: QUESTS & APPROVALS -->
+                <div class="space-y-6 pt-6 border-t border-slate-800">
+                    <div class="glass-panel p-5 rounded-2xl border border-blue-500/30 space-y-4 bg-blue-500/5">
+                        <h3 class="text-sm font-extrabold text-blue-300 flex items-center">
+                            <i class="fa-solid fa-list-check mr-2 text-blue-400"></i> กลุ่มที่ 2: รายการรอนุมัติภารกิจ & จัดการกิจกรรม
+                        </h3>
+                        <p class="text-[11px] text-slate-400">ตรวจสอบและอนุมัติงานบ้านที่สมาชิกส่งมา รวมถึงเพิ่ม/แก้ไข/ลบรายการภารกิจ</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <h4 class="text-xs font-bold text-blue-300">รายการรออนุมัติภารกิจ (Pending Approvals)</h4>
+                        <div id="admin-pending-list" class="space-y-2"></div>
+                    </div>
+
+                    <div class="space-y-3 pt-3 border-t border-slate-800">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-xs font-bold text-blue-300">จัดการกิจกรรมภารกิจ (Add/Edit Quests)</h4>
+                            <button onclick="toggleAddQuest()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg">+ เพิ่มภารกิจใหม่</button>
+                        </div>
+                        
+                        <div id="add-quest-box" class="hidden glass-panel p-4 rounded-xl space-y-3 border border-blue-500/30">
+                            <input type="hidden" id="nq-edit-id" value="">
+                            <h5 id="nq-form-title" class="text-xs font-bold text-blue-400">เพิ่มภารกิจใหม่</h5>
+                            <input type="text" id="nq-title" placeholder="ชื่อภารกิจ เช่น สอบได้เกรด 4" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                            <input type="number" id="nq-reward" placeholder="จำนวน Coins" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                            <select id="nq-type" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                                <option value="daily">รายวัน</option>
+                                <option value="weekly">รายสัปดาห์</option>
+                                <option value="monthly">รายเดือน</option>
+                                <option value="special">พิเศษ (ทำได้ครั้งเดียว)</option>
+                            </select>
+                            <div class="flex space-x-2 pt-1">
+                                <button id="nq-submit-btn" onclick="saveNewQuest()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all">บันทึกภารกิจ</button>
+                                <button onclick="resetQuestForm()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all">ยกเลิก</button>
+                            </div>
+                        </div>
+
+                        <div id="admin-quest-list" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <!-- 🔒 GROUP 3: SECURITY, USERS & BACKUP -->
+                <div id="admin-group-security" class="space-y-6 pt-6 border-t border-slate-800 hidden">
+                    <div class="glass-panel p-5 rounded-2xl border border-red-500/30 space-y-4 bg-red-500/5">
+                        <h3 class="text-sm font-extrabold text-red-300 flex items-center">
+                            <i class="fa-solid fa-lock mr-2 text-red-400"></i> กลุ่มที่ 3: ความปลอดภัย, จัดการสิทธิสมาชิก, เพิ่ม-ลด Coins & สำรองข้อมูล
+                        </h3>
+                        <p class="text-[11px] text-slate-400">ควบคุมรหัสผ่านสมาชิก, ปรับสิทธิแอดมิน, เติม/ลดเหรียญ Coins และระบบสำรอง/กู้คืนข้อมูล JSON</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="glass-panel p-4 rounded-2xl space-y-3 border border-slate-800">
+                            <h4 class="text-xs font-bold text-slate-300">จัดการสิทธิ์สมาชิก & เปลี่ยนรหัสผ่าน</h4>
+                            <div id="sa-users-list" class="space-y-3"></div>
+                        </div>
+
+                        <div class="glass-panel p-4 rounded-2xl space-y-3 border border-slate-800">
+                            <h4 class="text-xs font-bold text-slate-300">เติม/ลด Coins โดยตรง</h4>
+                            <select id="sa-coin-user" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200"></select>
+                            <div class="flex space-x-2">
+                                <input type="number" id="sa-coin-amt" placeholder="จำนวน เช่น 500" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200">
+                                <button onclick="applyCoins()" class="px-4 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl whitespace-nowrap">ปรับ Coins</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-2xl space-y-3 border border-amber-500/30 bg-amber-500/5">
+                        <h4 class="text-xs font-bold text-amber-400"><i class="fa-solid fa-database mr-1"></i> ระบบสำรองข้อมูลและกู้คืน (Backup & Restore)</h4>
+                        <p class="text-[11px] text-slate-400">ดาวน์โหลดไฟล์สำรองข้อมูล (JSON) เก็บไว้ในเครื่อง และกดนำเข้าเพื่อกู้คืนได้ทุกเมื่อ</p>
+                        <div class="flex flex-wrap gap-2 pt-1">
+                            <button onclick="exportDatabaseBackup()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center space-x-2">
+                                <i class="fa-solid fa-download"></i><span>สำรองข้อมูล (Export JSON)</span>
+                            </button>
+                            <label class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center space-x-2 cursor-pointer">
+                                <i class="fa-solid fa-upload"></i><span>กู้คืนข้อมูล (Import JSON)</span>
+                                <input type="file" id="import-file-input" accept=".json" onchange="importDatabaseBackup(event)" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- BOTTOM NAVIGATION BAR -->
+    <nav class="sticky bottom-0 z-40 glass-panel border-t border-slate-800 px-2 py-2 shadow-2xl">
+        <div class="max-w-md mx-auto flex items-center justify-around">
+            <button onclick="switchTab('pack-opener')" id="nav-pack-opener" class="nav-btn flex flex-col items-center p-2 text-amber-400"><i class="fa-solid fa-box-open text-lg"></i><span class="text-[10px] font-semibold mt-1">เปิดซอง</span></button>
+            <button onclick="switchTab('binder')" id="nav-binder" class="nav-btn flex flex-col items-center p-2 text-slate-400"><i class="fa-solid fa-book-bookmark text-lg"></i><span class="text-[10px] font-semibold mt-1">สมุดคลัง</span></button>
+            <button onclick="switchTab('quests')" id="nav-quests" class="nav-btn flex flex-col items-center p-2 text-slate-400"><i class="fa-solid fa-list-check text-lg"></i><span class="text-[10px] font-semibold mt-1">ภารกิจ</span></button>
+            <button onclick="switchTab('admin')" id="nav-admin" class="nav-btn hidden flex flex-col items-center p-2 text-amber-500"><i class="fa-solid fa-user-shield text-lg"></i><span class="text-[10px] font-semibold mt-1">หลังบ้าน</span></button>
+        </div>
+    </nav>
+
+    <!-- MAIN JAVASCRIPT LOGIC ENGINE -->
+    <script>
+        let localManifestSets = [];
+
+        const RARITY_LEVELS = [
+            { name: "Common", defaultRate: 35, defaultRefundPct: 2 },
+            { name: "Uncommon", defaultRate: 25, defaultRefundPct: 5 },
+            { name: "Rare", defaultRate: 15, defaultRefundPct: 10 },
+            { name: "Rare Holo", defaultRate: 8, defaultRefundPct: 15 },
+            { name: "Rare Holo EX", defaultRate: 4, defaultRefundPct: 20 },
+            { name: "Rare Holo GX", defaultRate: 3, defaultRefundPct: 20 },
+            { name: "Rare Holo V", defaultRate: 3, defaultRefundPct: 20 },
+            { name: "Rare Holo VMAX", defaultRate: 2, defaultRefundPct: 25 },
+            { name: "Rare Holo VSTAR", defaultRate: 1.5, defaultRefundPct: 25 },
+            { name: "Illustration Rare (IR)", defaultRate: 1, defaultRefundPct: 30 },
+            { name: "Special Illustration Rare (SIR)", defaultRate: 0.5, defaultRefundPct: 40 },
+            { name: "Rare Ultra", defaultRate: 0.5, defaultRefundPct: 30 },
+            { name: "Rare Rainbow", defaultRate: 0.3, defaultRefundPct: 35 },
+            { name: "Rare Secret", defaultRate: 0.2, defaultRefundPct: 40 },
+            { name: "Hyper Rare (HR)", defaultRate: 0.2, defaultRefundPct: 45 },
+            { name: "ACE SPEC", defaultRate: 0.3, defaultRefundPct: 30 },
+            { name: "Promo", defaultRate: 0.3, defaultRefundPct: 15 },
+            { name: "Other", defaultRate: 0.2, defaultRefundPct: 5 }
+        ];
+
+        const DEFAULT_RARITY_RATES = Object.fromEntries(RARITY_LEVELS.map(r => [r.name, r.defaultRate]));
+        const DEFAULT_REFUND_RATES = Object.fromEntries(RARITY_LEVELS.map(r => [r.name, r.defaultRefundPct]));
+
+        let state = {
+            currentUser: null,
+            users: [
+                { id: "u1", name: "คุณต้อม", role: "superadmin", passcode: "1234", coins: 3000, inventory: [], completedSpecialQuests: [], completedDailyQuests: [], completedWeeklyQuests: [], completedMonthlyQuests: [] },
+                { id: "u2", name: "คุณแป้ง", role: "admin", passcode: "5678", coins: 1500, inventory: [], completedSpecialQuests: [], completedDailyQuests: [], completedWeeklyQuests: [], completedMonthlyQuests: [] },
+                { id: "u3", name: "ไนท์", role: "user", passcode: "", coins: 800, inventory: [], completedSpecialQuests: [], completedDailyQuests: [], completedWeeklyQuests: [], completedMonthlyQuests: [] }
+            ],
+            disabledSets: [],
+            customPrices: {}, 
+            quests: [
+                { id: "q1", title: "กวาดและถูพื้นบ้าน", reward: 200, type: "daily" },
+                { id: "q2", title: "ล้างจานหลังอาหารเย็น", reward: 150, type: "daily" },
+                { id: "q3", title: "จัดห้องนอนให้เรียบร้อย", reward: 400, type: "weekly" },
+                { id: "q4", title: "อ่านหนังสือสะสม 5 เล่ม", reward: 1000, type: "monthly" },
+                { id: "q_sp1", title: "🏆 สอบได้เกรด 4 หรืออันดับ Top 3", reward: 3000, type: "special" }
+            ],
+            pendingApprovals: [],
+            dropMultiplier: 1.0,
+            rarityRates: { ...DEFAULT_RARITY_RATES },
+            refundRates: { ...DEFAULT_REFUND_RATES },
+            activeQuestFilter: 'all',
+            lastResetDates: { daily: null, weekly: null, monthly: null }
+        };
+
+        function loadDB() {
+            const saved = localStorage.getItem('poke_family_master_db_v15');
+            if (saved) state = { ...state, ...JSON.parse(saved) };
+            state.rarityRates = { ...DEFAULT_RARITY_RATES, ...(state.rarityRates || {}) };
+            state.refundRates = { ...DEFAULT_REFUND_RATES, ...(state.refundRates || {}) };
+            if (!state.customPrices) state.customPrices = {};
+            checkAutoResetTimers();
+        }
+
+        function saveDB() {
+            localStorage.setItem('poke_family_master_db_v15', JSON.stringify(state));
+            
+            // เซฟข้อมูลผู้ใช้ปัจจุบันลง Cloud Firestore
+            if (state.currentUser && window.saveUserData) {
+                window.saveUserData(state.currentUser.id, {
+                    coins: state.currentUser.coins,
+                    inventory: state.currentUser.inventory,
+                    completedSpecialQuests: state.currentUser.completedSpecialQuests || [],
+                    completedDailyQuests: state.currentUser.completedDailyQuests || [],
+                    completedWeeklyQuests: state.currentUser.completedWeeklyQuests || [],
+                    completedMonthlyQuests: state.currentUser.completedMonthlyQuests || []
+                });
+            }
+
+            // เซฟค่าการตั้งค่าหลังบ้านลง Cloud Firestore
+            if (window.saveGlobalStateToCloud) {
+                window.saveGlobalStateToCloud();
+            }
+
+            updateUI();
+        }
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                if (type === 'tear') {
+                    osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.25);
+                } else if (type === 'slide') {
+                    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.15);
+                } else if (type === 'coin') {
+                    osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(1300, audioCtx.currentTime + 0.1);
+                }
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+            } catch(e) {}
+        }
+
+        function initAuth() {
+            const sel = document.getElementById('auth-user-select');
+            sel.innerHTML = state.users.map(u => `<option value="${u.id}">${u.name} (${u.role.toUpperCase()})</option>`).join('');
+        }
+
+        async function handleLogin() {
+            const uid = document.getElementById('auth-user-select').value;
+            const pin = document.getElementById('auth-passcode').value;
+            const user = state.users.find(u => u.id === uid);
+            if (!user) return;
+
+            if (user.passcode && user.passcode !== "" && pin !== user.passcode) {
+                alert('รหัสผ่านประจำตัวไม่ถูกต้อง!');
+                return;
+            }
+
+            // ดึงข้อมูลผู้ใช้จาก Cloud Firestore
+            if (window.loadUserData) {
+                const cloudData = await window.loadUserData(user.id);
+                if (cloudData) {
+                    if (cloudData.coins !== undefined) user.coins = cloudData.coins;
+                    if (cloudData.inventory !== undefined) user.inventory = cloudData.inventory;
+                    if (cloudData.completedSpecialQuests) user.completedSpecialQuests = cloudData.completedSpecialQuests;
+                    if (cloudData.completedDailyQuests) user.completedDailyQuests = cloudData.completedDailyQuests;
+                    if (cloudData.completedWeeklyQuests) user.completedWeeklyQuests = cloudData.completedWeeklyQuests;
+                    if (cloudData.completedMonthlyQuests) user.completedMonthlyQuests = cloudData.completedMonthlyQuests;
+                }
+            }
+
+            state.currentUser = user;
+            if (!state.currentUser.completedSpecialQuests) state.currentUser.completedSpecialQuests = [];
+            if (!state.currentUser.completedDailyQuests) state.currentUser.completedDailyQuests = [];
+            if (!state.currentUser.completedWeeklyQuests) state.currentUser.completedWeeklyQuests = [];
+            if (!state.currentUser.completedMonthlyQuests) state.currentUser.completedMonthlyQuests = [];
+
+            document.getElementById('auth-modal').classList.add('hidden');
+            saveDB();
+
+            // เริ่มเปิดใช้งาน Listener สำหรับ Realtime Sync เฉพาะ User นี้
+            if (window.initCloudSync) window.initCloudSync();
+        }
+
+        function toggleNewUserForm() {
+            document.getElementById('new-user-form').classList.toggle('hidden');
+        }
+
+        function createNewUser() {
+            const name = document.getElementById('new-username').value.trim();
+            const passcode = document.getElementById('new-user-passcode').value.trim();
+            const role = document.getElementById('new-user-role').value;
+            if (!name) return alert('กรุณากรอกชื่อสมาชิก');
+            
+            const newUser = { 
+                id: 'u_' + Date.now(), 
+                name, 
+                role, 
+                passcode, 
+                coins: 500, 
+                inventory: [],
+                completedSpecialQuests: [],
+                completedDailyQuests: [],
+                completedWeeklyQuests: [],
+                completedMonthlyQuests: []
+            };
+
+            state.users.push(newUser);
+
+            document.getElementById('new-username').value = '';
+            document.getElementById('new-user-passcode').value = '';
+            toggleNewUserForm(); initAuth(); saveDB(); alert('สร้างผู้ใช้ใหม่เรียบร้อย!');
+        }
+
+        function exportDatabaseBackup() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `pokemon_family_backup_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importDatabaseBackup(event) {
+            const fileReader = new FileReader();
+            if (event.target.files[0]) {
+                fileReader.readAsText(event.target.files[0], "UTF-8");
+                fileReader.onload = (e) => {
+                    try {
+                        const parsed = JSON.parse(e.target.result);
+                        if (parsed && parsed.users && parsed.quests) {
+                            state = parsed;
+                            saveDB();
+                            initAuth();
+                            alert('กู้คืนข้อมูลสำเร็จเรียบร้อย!');
+                            window.location.reload();
+                        } else {
+                            alert('ไฟล์สำรองข้อมูลไม่ถูกต้อง!');
+                        }
+                    } catch (err) {
+                        alert('เกิดข้อผิดพลาดในการอ่านไฟล์ JSON');
+                    }
+                };
+            }
+        }
+
+        function switchTab(id) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('tab-' + id).classList.remove('hidden');
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('text-amber-400', 'text-amber-500'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.add('text-slate-400'));
+            
+            const activeBtn = document.getElementById('nav-' + id);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-slate-400');
+                activeBtn.classList.add('text-amber-400');
+            }
+
+            if (id === 'pack-opener') {
+                if (localManifestSets.length === 0) fetchLocalManifest();
+                else renderLiveSetsUI();
+            }
+            if (id === 'binder') {
+                if (localManifestSets.length === 0) fetchLocalManifest().then(() => renderBinderPacksGrid());
+                else renderBinderPacksGrid();
+            }
+            if (id === 'quests') {
+                state.activeQuestFilter = 'all';
+                const filterSelect = document.getElementById('quest-filter-select');
+                if (filterSelect) filterSelect.value = 'all';
+                renderQuests();
+            }
+            if (id === 'admin') renderAdmin();
+        }
+
+        async function fetchLocalManifest() {
+            try {
+                const res = await fetch('data/sets_manifest.json');
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    localManifestSets = data.map(s => {
+                        let localLogo = `data/${s.id}/logo.webp`;
+                        return {
+                            id: s.id,
+                            name: s.name || `Pack ${s.id.toUpperCase()}`,
+                            series: s.series || 'Other Series',
+                            logo: localLogo,
+                            total: s.total || s.cardCount || 100,
+                            price: state.customPrices[s.id] !== undefined ? state.customPrices[s.id] : (s.price !== undefined ? s.price : 999999)
+                        };
+                    });
+                    updateSeriesDropdowns();
+                    renderLiveSetsUI();
+                    renderBinderPacksGrid();
+                } else {
+                    useFallbackSets();
+                }
+            } catch (e) {
+                useFallbackSets();
+            }
+        }
+
+        function updateSeriesDropdowns() {
+            const activeSets = localManifestSets.filter(s => !(state.disabledSets || []).includes(s.id));
+            const activeSeries = [...new Set(activeSets.map(s => s.series))].filter(Boolean).sort();
+            
+            const packSelect = document.getElementById('filter-series-select');
+            if (packSelect) {
+                packSelect.innerHTML = '<option value="ALL">ซีรีส์ทั้งหมด (เฉพาะที่เปิดขาย)</option>' + activeSeries.map(ser => `<option value="${ser}">${ser}</option>`).join('');
+            }
+        }
+
+        function useFallbackSets() {
+            localManifestSets = [];
+            const grid = document.getElementById('pack-selection-grid');
+            if (grid) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12 space-y-3">
+                        <div class="text-amber-400 text-base font-bold animate-pulse">
+                            <i class="fa-solid fa-triangle-exclamation mr-2"></i> ยังไม่พบไฟล์ข้อมูลในเครื่อง (data/sets_manifest.json)
+                        </div>
+                        <p class="text-xs text-slate-400">
+                            กรุณารันสคริปต์ generate_manifest.py เพื่อสร้างฐานข้อมูลก่อนครับคุณต้อม
+                        </p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderLiveSetsUI() {
+            updateSeriesDropdowns();
+            filterSetsUI();
+        }
+
+        function filterSetsUI() {
+            const query = document.getElementById('search-set-input').value.toLowerCase();
+            const seriesFilter = document.getElementById('filter-series-select').value;
+            const grid = document.getElementById('pack-selection-grid');
+
+            let filtered = localManifestSets.filter(s => !(state.disabledSets || []).includes(s.id));
+
+            if (query) filtered = filtered.filter(s => s.name.toLowerCase().includes(query) || s.id.toLowerCase().includes(query));
+            if (seriesFilter !== 'ALL') filtered = filtered.filter(s => s.series === seriesFilter);
+
+            if (!filtered.length) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-500 text-xs">ไม่พบชุดการ์ดที่เปิดวางขายในขณะนี้</div>`;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(s => {
+                const currentPrice = state.customPrices[s.id] !== undefined ? state.customPrices[s.id] : s.price;
+                return `
+                <div class="glass-panel p-4 rounded-2xl border border-slate-800 space-y-3 text-center flex flex-col justify-between hover:border-amber-500/50 transition-all">
+                    <div class="h-20 flex items-center justify-center">
+                        <img src="${s.logo}" class="max-h-16 max-w-full object-contain" onerror="this.onerror=null; this.src='data/${s.id}/logo.png';">
+                    </div>
+                    <div>
+                        <span class="text-[9px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-semibold">${s.series}</span>
+                        <h4 class="font-bold text-xs text-white mt-1 truncate">${s.name}</h4>
+                        <p class="text-[10px] text-slate-400">${s.total} การ์ดในชุด</p>
+                        <p class="text-xs text-amber-400 font-extrabold mt-1">${currentPrice.toLocaleString()} Coins / ซอง</p>
+                    </div>
+                    <button onclick="startPackOpening('${s.id}', ${currentPrice}, '${s.name}', '${s.logo}')" class="w-full py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold text-xs rounded-xl shadow">
+                        เปิดซองนี้
+                    </button>
+                </div>
+            `}).join('');
+        }
+
+        function renderBinderPacksGrid() {
+            document.getElementById('binder-view-packs').classList.remove('hidden');
+            document.getElementById('binder-view-cards').classList.add('hidden');
+            filterBinderPacksUI();
+        }
+
+        function filterBinderPacksUI() {
+            const query = (document.getElementById('binder-search-input')?.value || '').toLowerCase();
+            const seriesFilter = document.getElementById('binder-series-select')?.value || 'ALL';
+            const grid = document.getElementById('binder-packs-grid');
+
+            if (!localManifestSets.length) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-500 text-xs">ยังไม่มีข้อมูลแพ็คการ์ด</div>`;
+                return;
+            }
+
+            let filtered = [...localManifestSets];
+
+            if (seriesFilter === 'ACTIVE_ONLY') {
+                filtered = filtered.filter(s => !(state.disabledSets || []).includes(s.id));
+            } else if (seriesFilter !== 'ALL') {
+                filtered = filtered.filter(s => s.series === seriesFilter);
+            }
+
+            if (query) {
+                filtered = filtered.filter(s => s.name.toLowerCase().includes(query) || s.id.toLowerCase().includes(query));
+            }
+
+            if (!filtered.length) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-500 text-xs">ไม่พบชุดการ์ดที่ค้นหาในสมุดคลัง</div>`;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(s => {
+                let ownedInSet = 0;
+                if (state.currentUser && state.currentUser.inventory) {
+                    ownedInSet = state.currentUser.inventory.filter(c => c.setId === s.id).length;
+                }
+                const pct = s.total > 0 ? Math.round((ownedInSet / s.total) * 100) : 0;
+
+                return `
+                    <div onclick="openBinderSet('${s.id}', '${s.name}')" class="glass-panel p-4 rounded-2xl border border-slate-800 space-y-3 text-center flex flex-col justify-between cursor-pointer hover:border-amber-500/50 hover:bg-slate-900/60 transition-all">
+                        <div class="h-20 flex items-center justify-center">
+                            <img src="${s.logo}" class="max-h-16 max-w-full object-contain" onerror="this.onerror=null; this.src='data/${s.id}/logo.png';">
+                        </div>
+                        <div>
+                            <span class="text-[9px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-semibold">${s.series}</span>
+                            <h4 class="font-bold text-xs text-white mt-1 truncate">${s.name}</h4>
+                            <p class="text-[10px] text-amber-400 mt-1 font-bold">สะสมแล้ว: ${ownedInSet} / ${s.total} (${pct}%)</p>
+                        </div>
+                        <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden border border-slate-700">
+                            <div class="bg-amber-500 h-full rounded-full" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function openBinderSet(setId, setName) {
+            document.getElementById('binder-view-packs').classList.add('hidden');
+            document.getElementById('binder-view-cards').classList.remove('hidden');
+            document.getElementById('binder-active-title').innerText = setName;
+
+            const grid = document.getElementById('binder-grid');
+            grid.innerHTML = `<div class="col-span-full text-center py-12 text-amber-400 text-xs animate-pulse"><i class="fa-solid fa-spinner fa-spin mr-2"></i> กำลังโหลดการ์ดในชุด ${setName}...</div>`;
+
+            let allSetCards = [];
+            try {
+                const res = await fetch(`data/${setId}/set.json`);
+                allSetCards = await res.json();
+            } catch (e) {}
+
+            if (!allSetCards || allSetCards.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-500 text-xs">ยังไม่ได้ดาวน์โหลดข้อมูลการ์ดชุดนี้ลงเครื่อง</div>`;
+                document.getElementById('binder-progress-bar').innerHTML = `<div><span class="font-bold text-amber-400 text-sm">0 / 0 ใบ</span></div>`;
+                return;
+            }
+
+            const userOwnedMap = new Map();
+            if (state.currentUser && state.currentUser.inventory) {
+                state.currentUser.inventory.forEach(c => {
+                    if (c.setId === setId) {
+                        userOwnedMap.set(c.id, c);
+                    }
+                });
+            }
+
+            const ownedCount = allSetCards.filter(c => userOwnedMap.has(c.id)).length;
+            const percentage = allSetCards.length > 0 ? Math.round((ownedCount / allSetCards.length) * 100) : 0;
+
+            document.getElementById('binder-progress-bar').innerHTML = `
+                <div>
+                    <span class="font-bold text-amber-400 text-sm">การ์ดในชุดนี้: ${ownedCount} / ${allSetCards.length} ใบ</span>
+                    <p class="text-[10px] text-slate-400">สะสมไปแล้ว ${percentage}%</p>
+                </div>
+                <div class="w-32 bg-slate-800 h-2 rounded-full overflow-hidden border border-slate-700">
+                    <div class="bg-amber-500 h-full rounded-full" style="width: ${percentage}%"></div>
+                </div>
+            `;
+
+            grid.innerHTML = allSetCards.map(c => {
+                const isOwned = userOwnedMap.has(c.id);
+                let imgSrc = `data/${setId}/${c.id}.webp`;
+
+                if (isOwned) {
+                    return `
+                        <div class="glass-panel p-2.5 rounded-2xl border border-amber-500/30 space-y-2 card-holo">
+                            <img src="${imgSrc}" class="w-full rounded-xl object-contain shadow-md" onerror="this.onerror=null; this.src='data/${setId}/${c.id}.png';">
+                            <div class="text-center">
+                                <p class="font-bold text-xs text-white truncate">${c.name}</p>
+                                <span class="text-[10px] text-amber-400 font-semibold">#${c.number} • ${c.rarity || 'Common'}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="glass-panel p-2.5 rounded-2xl border border-slate-800 space-y-2 card-silhouette">
+                            <img src="${imgSrc}" class="w-full rounded-xl opacity-30 object-contain" onerror="this.onerror=null; this.src='data/${setId}/${c.id}.png';">
+                            <div class="text-center">
+                                <p class="font-bold text-xs text-slate-500 truncate">???</p>
+                                <span class="text-[10px] text-slate-600">#${c.number} • ยังไม่มี</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
+        }
+
+        function backToBinderPacks() {
+            renderBinderPacksGrid();
+        }
+
+        let drawnCards = [];
+        let recycledCoinsTotal = 0;
+
+        async function startPackOpening(setId, packPrice, setName, setLogo) {
+            if (!state.currentUser) return;
+            if (state.currentUser.coins < packPrice) return alert(`Coins ไม่พอ! (ต้องการ ${packPrice.toLocaleString()} Coins)`);
+
+            state.currentUser.coins -= packPrice;
+            saveDB();
+
+            document.getElementById('selected-pack-name').innerText = setName;
+            document.getElementById('selected-pack-logo').src = setLogo;
+
+            let setCards = [];
+            try {
+                const res = await fetch(`data/${setId}/set.json`);
+                setCards = await res.json();
+            } catch (e) {}
+
+            if (!setCards || setCards.length === 0) setCards = [
+                { id: `${setId}-1`, number: "1", name: "Pikachu", rarity: "Rare", image: `data/${setId}/${setId}-1.webp`, setId: setId }
+            ];
+
+            setCards = setCards.map(c => ({ ...c, setId: c.setId || setId }));
+
+            drawnCards = [];
+            recycledCoinsTotal = 0;
+
+            for (let i = 0; i < 5; i++) {
+                const availableRarities = [...new Set(setCards.map(card => getRarityCategory(card.rarity)))];
+                const weightedRarities = availableRarities
+                    .map(rarity => ({
+                        rarity,
+                        weight: Math.max(0, Number((state.rarityRates || DEFAULT_RARITY_RATES)[rarity] ?? DEFAULT_RARITY_RATES.Other ?? 0)),
+                        cards: setCards.filter(card => getRarityCategory(card.rarity) === rarity)
+                    }))
+                    .filter(item => item.cards.length > 0 && Number.isFinite(item.weight) && item.weight > 0);
+
+                let c;
+                const totalWeight = weightedRarities.reduce((sum, item) => sum + item.weight, 0);
+                if (totalWeight > 0) {
+                    let roll = Math.random() * totalWeight;
+                    let chosen = weightedRarities[weightedRarities.length - 1];
+                    for (const item of weightedRarities) {
+                        roll -= item.weight;
+                        if (roll < 0) { chosen = item; break; }
+                    }
+                    c = chosen.cards[Math.floor(Math.random() * chosen.cards.length)];
+                } else {
+                    c = setCards[Math.floor(Math.random() * setCards.length)];
+                }
+
+                const alreadyHas = state.currentUser.inventory.some(inv => inv.id === c.id && inv.setId === c.setId);
+                if (alreadyHas) {
+                    const rarityCat = getRarityCategory(c.rarity);
+                    const refundPct = Number((state.refundRates || DEFAULT_REFUND_RATES)[rarityCat] ?? DEFAULT_REFUND_RATES.Other ?? 5);
+                    
+                    let refundCoins = Math.round((packPrice * refundPct) / 100);
+                    if (refundCoins < 1) refundCoins = 1;
+
+                    recycledCoinsTotal += refundCoins;
+                    drawnCards.push({ ...c, isDuplicate: true, refundCoins: refundCoins, setName: setName });
+                } else {
+                    drawnCards.push({ ...c, isDuplicate: false, setName: setName });
+                }
+            }
+
+            const rarityRatesForSort = { ...DEFAULT_RARITY_RATES, ...(state.rarityRates || {}) };
+            const rarityOrder = new Map(RARITY_LEVELS.map((item, index) => [item.name, index]));
+            drawnCards.sort((a, b) => {
+                const rarityA = getRarityCategory(a.rarity);
+                const rarityB = getRarityCategory(b.rarity);
+                const rateA = Number(rarityRatesForSort[rarityA] ?? rarityRatesForSort.Other ?? 0);
+                const rateB = Number(rarityRatesForSort[rarityB] ?? rarityRatesForSort.Other ?? 0);
+                if (rateA !== rateB) return rateB - rateA;
+                return (rarityOrder.get(rarityA) ?? RARITY_LEVELS.length) - (rarityOrder.get(rarityB) ?? RARITY_LEVELS.length);
+            });
+
+            if (recycledCoinsTotal > 0) {
+                state.currentUser.coins += recycledCoinsTotal;
+            }
+
+            const modal = document.getElementById('pack-stage-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            document.getElementById('foil-pack-wrap').classList.remove('hidden');
+            document.getElementById('card-reveal-wrap').classList.add('hidden');
+            initFoilAction();
+        }
+
+        function initFoilAction() {
+            const packBox = document.getElementById('foil-pack-box');
+            const triggerOpen = () => {
+                playSound('tear');
+                packBox.style.transform = 'translateY(-30px) scale(1.05)';
+                packBox.style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('foil-pack-wrap').classList.add('hidden');
+                    document.getElementById('card-reveal-wrap').classList.remove('hidden');
+                    packBox.style.transform = ''; packBox.style.opacity = '';
+                    renderPocketStack();
+                }, 400);
+            };
+            packBox.onclick = triggerOpen;
+            document.getElementById('foil-tear-zone').onclick = triggerOpen;
+        }
+
+        function renderPocketStack() {
+            const container = document.getElementById('card-stack-box');
+            container.innerHTML = '';
+            document.getElementById('reveal-progress').innerText = 1;
+
+            const summaryEl = document.getElementById('recycled-coins-summary');
+            if (recycledCoinsTotal > 0) {
+                summaryEl.innerText = `♻️ ย่อยการ์ดซ้ำคืนเงิน +${recycledCoinsTotal.toLocaleString()} Coins เข้าบัญชีแล้ว!`;
+                summaryEl.classList.remove('hidden');
+            } else {
+                summaryEl.classList.add('hidden');
+            }
+
+            drawnCards.forEach((card, idx) => {
+                const el = document.createElement('div');
+                el.className = 'pocket-card-pure card-holo rounded-2xl overflow-hidden relative shadow-2xl';
+                
+                el.style.zIndex = 10 - idx;
+                el.style.transform = `translateY(${idx * 4}px) scale(${1 - idx * 0.02})`;
+                
+                const cardImg = `data/${card.setId}/${card.id}.webp`;
+
+                el.innerHTML = `
+                    ${card.isDuplicate ? `<span class="absolute top-3 right-3 z-20 text-[10px] bg-red-600/90 text-white font-extrabold px-2.5 py-1 rounded-full shadow-lg backdrop-blur-sm border border-red-400">ซ้ำ (+${card.refundCoins} Coins)</span>` : ''}
+                    <img src="${cardImg}" class="w-full h-full object-contain rounded-2xl pointer-events-none drop-shadow-xl" onerror="this.onerror=null; this.src='data/${card.setId}/${card.id}.png';">
+                `;
+
+                el.onclick = () => {
+                    const topCard = container.querySelector('.pocket-card-pure');
+                    if (el === topCard) {
+                        slideCardOut(el);
+                    }
+                };
+
+                container.appendChild(el);
+            });
+        }
+
+        function slideCardOut(el) {
+            playSound('slide');
+            el.style.transform = 'translateX(400px) rotate(30deg) scale(0.9)';
+            el.style.opacity = '0';
+            
+            setTimeout(() => {
+                el.remove();
+                const leftCards = document.querySelectorAll('.pocket-card-pure');
+                const remaining = leftCards.length;
+                
+                if (remaining > 0) {
+                    document.getElementById('reveal-progress').innerText = 6 - remaining;
+                    leftCards.forEach((cardEl, i) => {
+                        cardEl.style.transform = `translateY(${i * 4}px) scale(${1 - i * 0.02})`;
+                    });
+                } else {
+                    finishPack();
+                }
+            }, 300);
+        }
+
+        function finishPack() {
+            const newCards = drawnCards.filter(c => !c.isDuplicate);
+            state.currentUser.inventory.push(...newCards);
+            saveDB();
+            
+            const modal = document.getElementById('pack-stage-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function checkAutoResetTimers() {
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+            
+            const tempDate = new Date(now.getTime());
+            const dayOfWeek = tempDate.getDay();
+            const diffToWed = (dayOfWeek >= 3) ? (dayOfWeek - 3) : (dayOfWeek + 4);
+            tempDate.setDate(tempDate.getDate() - diffToWed);
+            const wednesdayStr = tempDate.toISOString().split('T')[0];
+
+            const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+            if (!state.lastResetDates) {
+                state.lastResetDates = { daily: null, weekly: null, monthly: null };
+            }
+
+            let needSave = false;
+
+            if (state.lastResetDates.daily !== todayStr) {
+                state.lastResetDates.daily = todayStr;
+                resetQuestsByType('daily');
+                needSave = true;
+            }
+
+            if (state.lastResetDates.weekly !== wednesdayStr) {
+                state.lastResetDates.weekly = wednesdayStr;
+                resetQuestsByType('weekly');
+                needSave = true;
+            }
+
+            if (state.lastResetDates.monthly !== monthStr) {
+                state.lastResetDates.monthly = monthStr;
+                resetQuestsByType('monthly');
+                needSave = true;
+            }
+
+            if (needSave) saveDB();
+        }
+
+        function resetQuestsByType(type) {
+            state.pendingApprovals = state.pendingApprovals.filter(p => {
+                const q = state.quests.find(x => x.id === p.qid);
+                return q && q.type !== type;
+            });
+
+            state.users.forEach(u => {
+                if (type === 'daily' && u.completedDailyQuests) u.completedDailyQuests = [];
+                if (type === 'weekly' && u.completedWeeklyQuests) u.completedWeeklyQuests = [];
+                if (type === 'monthly' && u.completedMonthlyQuests) u.completedMonthlyQuests = [];
+            });
+        }
+
+        function filterQuests(type) {
+            state.activeQuestFilter = type;
+            renderQuests();
+        }
+
+        function renderQuests() {
+            const list = document.getElementById('quests-list');
+            if (!list) return;
+
+            const typePriority = { special: 1, daily: 2, weekly: 3, monthly: 4 };
+
+            let filtered = [];
+            if (state.activeQuestFilter === 'all') {
+                filtered = [...state.quests];
+            } else {
+                filtered = state.quests.filter(q => q.type === state.activeQuestFilter);
+            }
+
+            if (!filtered.length) { 
+                list.innerHTML = `<div class="text-center py-12 text-slate-500 text-xs">ไม่มีรายการภารกิจในหมวดหมู่นี้</div>`; 
+                return; 
+            }
+
+            filtered.sort((a, b) => (typePriority[a.type] || 99) - (typePriority[b.type] || 99));
+
+            const u = state.currentUser;
+            const completedSpecial = u ? u.completedSpecialQuests || [] : [];
+            const completedDaily = u ? u.completedDailyQuests || [] : [];
+            const completedWeekly = u ? u.completedWeeklyQuests || [] : [];
+            const completedMonthly = u ? u.completedMonthlyQuests || [] : [];
+
+            const typeBadges = {
+                special: '<span class="text-[9px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">⭐ กิจกรรมพิเศษ</span>',
+                daily: '<span class="text-[9px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 font-bold">📅 รายวัน</span>',
+                weekly: '<span class="text-[9px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">📆 รายสัปดาห์</span>',
+                monthly: '<span class="text-[9px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">🗓️ รายเดือน</span>'
+            };
+
+            list.innerHTML = filtered.map(q => {
+                let isCompleted = false;
+                if (q.type === 'special' && completedSpecial.includes(q.id)) isCompleted = true;
+                if (q.type === 'daily' && completedDaily.includes(q.id)) isCompleted = true;
+                if (q.type === 'weekly' && completedWeekly.includes(q.id)) isCompleted = true;
+                if (q.type === 'monthly' && completedMonthly.includes(q.id)) isCompleted = true;
+
+                const isPending = u ? state.pendingApprovals.some(x => x.qid === q.id && x.uid === u.id) : false;
+
+                return `
+                    <div class="glass-panel p-4 rounded-2xl border ${q.type==='special'?'border-purple-500/40 bg-purple-950/20':'border-slate-800'} flex justify-between items-center hover:border-slate-700 transition-all">
+                        <div class="space-y-1">
+                            <div class="flex items-center space-x-2">
+                                ${typeBadges[q.type] || ''}
+                                <h4 class="font-bold text-sm text-white">${q.title}</h4>
+                            </div>
+                            <p class="text-xs text-amber-400 font-bold">+${q.reward} Coins ${q.type==='special'?'<span class="text-[10px] text-purple-300 font-normal">(ทำได้ครั้งเดียว)</span>':''}</p>
+                        </div>
+                        <div>
+                            ${isCompleted ? 
+                                `<span class="text-xs px-3 py-1.5 bg-emerald-500/20 text-emerald-300 font-bold rounded-xl border border-emerald-500/30 flex items-center space-x-1"><i class="fa-solid fa-circle-check"></i><span>สำเร็จแล้ว</span></span>` :
+                              isPending ? 
+                                `<span class="text-xs px-3 py-1.5 bg-amber-500/20 text-amber-300 font-bold rounded-xl border border-amber-500/30 flex items-center space-x-1"><i class="fa-solid fa-hourglass-half animate-spin"></i><span>รอแอดมินอนุมัติ</span></span>` : 
+                                `<button onclick="submitQuest('${q.id}')" class="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold text-xs rounded-xl shadow transition-all">ส่งงานภารกิจ</button>`
+                            }
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function submitQuest(qid) {
+            const q = state.quests.find(x => x.id === qid);
+            if (!q || !state.currentUser) return;
+
+            const u = state.currentUser;
+            const isPending = state.pendingApprovals.some(x => x.qid === q.id && x.uid === u.id);
+            if (isPending) return alert('ภารกิจนี้อยู่ระหว่างรอแอดมินอนุมัติ ไม่สามารถส่งซ้ำได้');
+
+            state.pendingApprovals.push({ 
+                id: 'p_' + Date.now(), 
+                qid: q.id, 
+                title: q.title, 
+                reward: q.reward, 
+                uid: u.id, 
+                uname: u.name 
+            });
+
+            saveDB(); 
+            renderQuests(); 
+            alert('ส่งภารกิจรอแอดมินอนุมัติเรียบร้อย!');
+        }
+
+        function renderAdmin() {
+            if (!state.currentUser || (state.currentUser.role !== 'admin' && state.currentUser.role !== 'superadmin')) {
+                alert('คุณไม่มีสิทธิ์เข้าถึงหน้าหลังบ้าน'); switchTab('pack-opener'); return;
+            }
+            document.getElementById('admin-role-txt').innerText = state.currentUser.role.toUpperCase();
+
+            const plist = document.getElementById('admin-pending-list');
+            plist.innerHTML = state.pendingApprovals.length ? state.pendingApprovals.map((p, i) => `
+                <div class="glass-panel p-3 rounded-xl flex justify-between items-center text-xs">
+                    <div><b>${p.uname}</b> - ${p.title} (+${p.reward} Coins)</div>
+                    <div class="space-x-1">
+                        <button onclick="approveQ(${i})" class="px-3 py-1 bg-emerald-600 text-white font-bold rounded">อนุมัติ</button>
+                        <button onclick="rejectQ(${i})" class="px-3 py-1 bg-red-600 text-white font-bold rounded">ปฏิเสธ</button>
+                    </div>
+                </div>
+            `).join('') : `<div class="text-xs text-slate-500">ไม่มีรายการรออนุมัติ</div>`;
+
+            const questTypeName = { daily: 'รายวัน', weekly: 'รายสัปดาห์', monthly: 'รายเดือน', special: 'กิจกรรมพิเศษ' };
+            document.getElementById('admin-quest-list').innerHTML = state.quests.map((q) => `
+                <div class="glass-panel p-3 rounded-xl flex justify-between items-center text-xs">
+                    <div><b>${q.title}</b> (${questTypeName[q.type] || q.type}) - <span class="text-amber-400 font-bold">${q.reward} Coins</span></div>
+                    <div class="space-x-2">
+                        <button onclick="editQuest('${q.id}')" class="text-amber-400 font-bold hover:underline"><i class="fa-solid fa-pen-to-square mr-1"></i>แก้ไข</button>
+                        <button onclick="delQuestById('${q.id}')" class="text-red-400 font-bold hover:underline"><i class="fa-solid fa-trash mr-1"></i>ลบ</button>
+                    </div>
+                </div>
+            `).join('');
+
+            const groupStore = document.getElementById('admin-group-store');
+            const groupSecurity = document.getElementById('admin-group-security');
+
+            if (state.currentUser.role === 'superadmin') {
+                groupStore.classList.remove('hidden');
+                groupSecurity.classList.remove('hidden');
+                renderRarityRateSettings();
+                renderRefundRateSettings();
+                renderStoreManagerBySeries();
+
+                document.getElementById('sa-users-list').innerHTML = state.users.map(u => `
+                    <div class="glass-panel p-2 rounded-xl space-y-2 text-xs">
+                        <div class="flex justify-between items-center font-bold text-white">
+                            <span>${u.name}</span>
+                            <select onchange="updateRole('${u.id}', this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px]">
+                                <option value="user" ${u.role==='user'?'selected':''}>User</option>
+                                <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+                                <option value="superadmin" ${u.role==='superadmin'?'selected':''}>Super Admin</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" id="passcode-${u.id}" value="${u.passcode || ''}" placeholder="ตั้งรหัสผ่านใหม่" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px]">
+                            <button onclick="updatePasscode('${u.id}')" class="px-3 py-1 bg-amber-500 text-slate-950 font-bold rounded whitespace-nowrap">เปลี่ยนรหัส</button>
+                        </div>
+                    </div>
+                `).join('');
+                document.getElementById('sa-coin-user').innerHTML = state.users.map(u => `<option value="${u.id}">${u.name} (${u.coins} Coins)</option>`).join('');
+            } else { 
+                groupStore.classList.add('hidden'); 
+                groupSecurity.classList.add('hidden');
+            }
+        }
+
+        function renderStoreManagerBySeries() {
+            const container = document.getElementById('admin-store-series-groups');
+            if (!container) return;
+
+            const searchQuery = (document.getElementById('admin-store-search')?.value || '').toLowerCase();
+
+            let filteredSets = [...localManifestSets];
+            if (searchQuery) {
+                filteredSets = filteredSets.filter(s => s.name.toLowerCase().includes(searchQuery) || s.id.toLowerCase().includes(searchQuery) || s.series.toLowerCase().includes(searchQuery));
+            }
+
+            const groups = {};
+            filteredSets.forEach(s => {
+                const series = s.series || 'Other Series';
+                if (!groups[series]) groups[series] = [];
+                groups[series].push(s);
+            });
+
+            if (Object.keys(groups).length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">ไม่พบชุดการ์ดที่ค้นหา</div>`;
+                return;
+            }
+
+            container.innerHTML = Object.keys(groups).map(seriesName => `
+                <div class="glass-panel p-4 rounded-2xl border border-slate-800 space-y-3">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                        <h5 class="text-xs font-bold text-amber-400 flex items-center">
+                            <i class="fa-solid fa-layer-group mr-2"></i> ${seriesName} (${groups[seriesName].length} แพ็ค)
+                        </h5>
+                        <div class="flex space-x-1">
+                            <button onclick="toggleSeriesStore('${seriesName}', true)" class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[10px] font-bold rounded border border-emerald-500/30 hover:bg-emerald-500/40">เปิดทั้งซีรีส์</button>
+                            <button onclick="toggleSeriesStore('${seriesName}', false)" class="px-2 py-0.5 bg-red-500/20 text-red-300 text-[10px] font-bold rounded border border-red-500/30 hover:bg-red-500/40">ปิดทั้งซีรีส์</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        ${groups[seriesName].map(s => {
+                            const isDisabled = (state.disabledSets || []).includes(s.id);
+                            const price = state.customPrices[s.id] !== undefined ? state.customPrices[s.id] : s.price;
+                            return `
+                                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-3 flex flex-col justify-between">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-14 h-14 bg-slate-950/60 rounded-lg p-1 flex items-center justify-center shrink-0 border border-slate-800">
+                                            <img src="${s.logo}" class="max-h-full max-w-full object-contain" onerror="this.onerror=null; this.src='data/${s.id}/logo.png';">
+                                        </div>
+                                        <div class="overflow-hidden">
+                                            <span class="font-bold text-xs text-white truncate block">${s.name}</span>
+                                            <span class="text-[10px] text-slate-500 font-mono">ID: ${s.id}</span>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <div class="flex items-center space-x-2">
+                                            <label class="text-[11px] text-slate-400 whitespace-nowrap">ราคา:</label>
+                                            <input type="number" id="store-price-${s.id}" value="${price}" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-500">
+                                            <button onclick="saveSetPrice('${s.id}')" class="px-2.5 py-1 bg-amber-500 text-slate-950 font-bold text-[10px] rounded hover:bg-amber-400 whitespace-nowrap">บันทึก</button>
+                                        </div>
+                                    </div>
+                                    <button onclick="toggleSetStore('${s.id}')" class="w-full py-1.5 rounded font-bold text-xs transition-all ${isDisabled ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}">
+                                        ${isDisabled ? '❌ ปิดการขายอยู่' : '✅ เปิดขายอยู่'}
+                                    </button>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleAllSetsStore(enableAll) {
+            if (enableAll) {
+                state.disabledSets = [];
+            } else {
+                state.disabledSets = localManifestSets.map(s => s.id);
+            }
+            saveDB();
+            renderAdmin();
+            alert(enableAll ? 'เปิดขายแพ็คการ์ดทั้งหมดเรียบร้อย!' : 'ปิดขายแพ็คการ์ดทั้งหมดเรียบร้อย!');
+        }
+
+        function toggleSeriesStore(seriesName, enableSeries) {
+            if (!state.disabledSets) state.disabledSets = [];
+            const seriesSetIds = localManifestSets.filter(s => s.series === seriesName).map(s => s.id);
+
+            if (enableSeries) {
+                state.disabledSets = state.disabledSets.filter(id => !seriesSetIds.includes(id));
+            } else {
+                seriesSetIds.forEach(id => {
+                    if (!state.disabledSets.includes(id)) state.disabledSets.push(id);
+                });
+            }
+            saveDB();
+            renderAdmin();
+        }
+
+        function saveSetPrice(setId) {
+            const priceInput = document.getElementById(`store-price-${setId}`);
+            if (!priceInput) return;
+            const price = parseInt(priceInput.value);
+            if (isNaN(price) || price < 0) return alert('กรุณากรอกราคาให้ถูกต้อง');
+
+            if (!state.customPrices) state.customPrices = {};
+            state.customPrices[setId] = price;
+
+            const targetSet = localManifestSets.find(s => s.id === setId);
+            if (targetSet) targetSet.price = price;
+
+            saveDB();
+            alert(`อัปเดตราคาแพ็ค ${setId} เป็น ${price.toLocaleString()} Coins เรียบร้อย!`);
+        }
+
+        function toggleSetStore(setId) {
+            if (!state.disabledSets) state.disabledSets = [];
+            const idx = state.disabledSets.indexOf(setId);
+            if (idx > -1) {
+                state.disabledSets.splice(idx, 1);
+            } else {
+                state.disabledSets.push(setId);
+            }
+            saveDB();
+            renderAdmin();
+        }
+
+        function updatePasscode(uid) {
+            const newPin = document.getElementById(`passcode-${uid}`).value.trim();
+            const u = state.users.find(x => x.id === uid);
+            if (u) {
+                u.passcode = newPin;
+                saveDB();
+                alert(`เปลี่ยนรหัสผ่านของ ${u.name} เรียบร้อย!`);
+            }
+        }
+
+        function approveQ(i) {
+            const p = state.pendingApprovals[i];
+            if (!p) return;
+
+            const u = state.users.find(x => x.id === p.uid);
+            const q = state.quests.find(x => x.id === p.qid);
+
+            if (u && q) {
+                u.coins += p.reward;
+
+                if (q.type === 'special') {
+                    if (!u.completedSpecialQuests) u.completedSpecialQuests = [];
+                    if (!u.completedSpecialQuests.includes(q.id)) u.completedSpecialQuests.push(q.id);
+                } else if (q.type === 'daily') {
+                    if (!u.completedDailyQuests) u.completedDailyQuests = [];
+                    if (!u.completedDailyQuests.includes(q.id)) u.completedDailyQuests.push(q.id);
+                } else if (q.type === 'weekly') {
+                    if (!u.completedWeeklyQuests) u.completedWeeklyQuests = [];
+                    if (!u.completedWeeklyQuests.includes(q.id)) u.completedWeeklyQuests.push(q.id);
+                } else if (q.type === 'monthly') {
+                    if (!u.completedMonthlyQuests) u.completedMonthlyQuests = [];
+                    if (!u.completedMonthlyQuests.includes(q.id)) u.completedMonthlyQuests.push(q.id);
+                }
+
+                // บันทึก coins และรายการเควสของผู้ใช้นั้นลง Cloud
+                if (window.saveUserData) {
+                    window.saveUserData(u.id, {
+                        coins: u.coins,
+                        completedSpecialQuests: u.completedSpecialQuests,
+                        completedDailyQuests: u.completedDailyQuests,
+                        completedWeeklyQuests: u.completedWeeklyQuests,
+                        completedMonthlyQuests: u.completedMonthlyQuests
+                    });
+                }
+            }
+
+            state.pendingApprovals.splice(i, 1);
+            saveDB(); 
+            renderAdmin(); 
+            playSound('coin');
+        }
+
+        function rejectQ(i) { 
+            state.pendingApprovals.splice(i, 1); 
+            saveDB(); 
+            renderAdmin(); 
+        }
+
+        function toggleAddQuest() { 
+            resetQuestForm();
+            document.getElementById('add-quest-box').classList.toggle('hidden'); 
+        }
+        
+        function editQuest(qid) {
+            const q = state.quests.find(x => x.id === qid);
+            if (!q) return;
+
+            document.getElementById('add-quest-box').classList.remove('hidden');
+            document.getElementById('nq-edit-id').value = q.id;
+            document.getElementById('nq-title').value = q.title;
+            document.getElementById('nq-reward').value = q.reward;
+            document.getElementById('nq-type').value = q.type;
+
+            document.getElementById('nq-form-title').innerText = '✏️ แก้ไขภารกิจ';
+            document.getElementById('nq-submit-btn').innerText = 'บันทึกการแก้ไข';
+        }
+
+        function resetQuestForm() {
+            document.getElementById('nq-edit-id').value = '';
+            document.getElementById('nq-title').value = '';
+            document.getElementById('nq-reward').value = '';
+            document.getElementById('nq-type').value = 'daily';
+
+            document.getElementById('nq-form-title').innerText = '➕ เพิ่มภารกิจใหม่';
+            document.getElementById('nq-submit-btn').innerText = 'บันทึกภารกิจ';
+            document.getElementById('add-quest-box').classList.add('hidden');
+        }
+
+        function saveNewQuest() {
+            const editId = document.getElementById('nq-edit-id').value;
+            const title = document.getElementById('nq-title').value.trim();
+            const reward = parseInt(document.getElementById('nq-reward').value);
+            const type = document.getElementById('nq-type').value;
+
+            if (!title || isNaN(reward) || reward <= 0) return alert('กรุณากรอกชื่อภารกิจและจำนวน Coins ให้ถูกต้อง');
+
+            if (editId) {
+                const q = state.quests.find(x => x.id === editId);
+                if (q) {
+                    q.title = title;
+                    q.reward = reward;
+                    q.type = type;
+                }
+            } else {
+                state.quests.push({ id: 'q_' + Date.now(), title, reward, type });
+            }
+
+            resetQuestForm();
+            saveDB(); 
+            renderAdmin();
+            alert('บันทึกข้อมูลภารกิจเรียบร้อย!');
+        }
+
+        function delQuestById(qid) { 
+            if (confirm('คุณแน่ใจหรือไม่ว่าต้องการลบภารกิจนี้?')) {
+                state.quests = state.quests.filter(q => q.id !== qid); 
+                saveDB(); 
+                renderAdmin(); 
+            }
+        }
+
+        function updateRole(uid, role) { const u = state.users.find(x => x.id === uid); if(u) { u.role = role; saveDB(); renderAdmin(); } }
+        
+        function applyCoins() {
+            const uid = document.getElementById('sa-coin-user').value;
+            const amt = parseInt(document.getElementById('sa-coin-amt').value);
+            const u = state.users.find(x => x.id === uid);
+            if(u && !isNaN(amt)) { 
+                u.coins += amt; 
+                if (window.saveUserData) {
+                    window.saveUserData(u.id, { coins: u.coins });
+                }
+                saveDB(); 
+                renderAdmin(); 
+                alert('ปรับ Coins สำเร็จ!'); 
+            }
+        }
+
+        function getRarityCategory(rarity) {
+            const name = String(rarity || 'Common').trim();
+            return RARITY_LEVELS.some(item => item.name === name) ? name : 'Other';
+        }
+
+        function renderRarityRateSettings() {
+            if (!state.currentUser || state.currentUser.role !== 'superadmin') return;
+            const list = document.getElementById('sa-rarity-rates-list');
+            if (!list) return;
+            const rates = { ...DEFAULT_RARITY_RATES, ...(state.rarityRates || {}) };
+            list.innerHTML = RARITY_LEVELS.map((item, index) => `
+                <label class="glass-panel p-2.5 rounded-xl flex items-center justify-between gap-2 text-xs">
+                    <span class="font-bold text-slate-200 truncate" title="${item.name}">${item.name}</span>
+                    <span class="flex items-center gap-1 shrink-0">
+                        <input id="sa-rarity-rate-${index}" data-rarity-index="${index}" type="number" min="0" max="100" step="0.1" value="${Number(rates[item.name] ?? item.defaultRate)}" oninput="updateRarityRateTotal()" class="w-16 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-right text-amber-300 font-bold">
+                        <span class="text-slate-400 text-[10px]">%</span>
+                    </span>
+                </label>
+            `).join('');
+            updateRarityRateTotal();
+        }
+
+        function updateRarityRateTotal() {
+            const totalEl = document.getElementById('sa-rarity-total');
+            const saveBtn = document.getElementById('sa-rarity-save-btn');
+            if (!totalEl) return;
+            let total = 0;
+            RARITY_LEVELS.forEach((item, index) => {
+                const input = document.getElementById(`sa-rarity-rate-${index}`);
+                const value = input ? Number(input.value) : Number((state.rarityRates || DEFAULT_RARITY_RATES)[item.name] ?? item.defaultRate);
+                if (Number.isFinite(value)) total += value;
+            });
+            total = Math.round(total * 10) / 10;
+            totalEl.innerText = `${total.toFixed(1).replace(/\.0$/, '')}%`;
+            const valid = Math.abs(total - 100) < 0.001;
+            totalEl.className = `font-black ${valid ? 'text-emerald-400' : 'text-red-400'}`;
+            if (saveBtn) saveBtn.disabled = !valid;
+            if (saveBtn) saveBtn.classList.toggle('opacity-50', !valid);
+        }
+
+        function autoBalanceRarityRates() {
+            let currentTotal = 0;
+            const values = [];
+            RARITY_LEVELS.forEach((item, index) => {
+                const input = document.getElementById(`sa-rarity-rate-${index}`);
+                const val = input ? parseFloat(input.value) || 0 : 0;
+                values.push(val);
+                currentTotal += val;
+            });
+
+            if (currentTotal <= 0) return alert('กรุณากรอกตัวเลขอย่างน้อยหนึ่งช่องเพื่อใช้ปรับสมดุล');
+
+            let adjustedTotal = 0;
+            RARITY_LEVELS.forEach((item, index) => {
+                const input = document.getElementById(`sa-rarity-rate-${index}`);
+                if (input) {
+                    let newVal = Math.round((values[index] / currentTotal) * 100 * 10) / 10;
+                    input.value = newVal;
+                    adjustedTotal += newVal;
+                }
+            });
+
+            updateRarityRateTotal();
+        }
+
+        function saveRarityRates() {
+            if (!state.currentUser || state.currentUser.role !== 'superadmin') return;
+            const rates = {};
+            let total = 0;
+            for (let index = 0; index < RARITY_LEVELS.length; index++) {
+                const item = RARITY_LEVELS[index];
+                const input = document.getElementById(`sa-rarity-rate-${index}`);
+                const value = input ? Number(input.value) : NaN;
+                if (!Number.isFinite(value) || value < 0 || value > 100) {
+                    alert(`กรุณากรอกเปอร์เซ็นต์ของ ${item.name} เป็นตัวเลขระหว่าง 0 ถึง 100`);
+                    return;
+                }
+                rates[item.name] = value;
+                total += value;
+            }
+            total = Math.round(total * 10) / 10;
+            if (Math.abs(total - 100) >= 0.001) {
+                alert(`ผลรวมอัตราสุ่มต้องเท่ากับ 100% (ปัจจุบัน ${total}%)`);
+                return;
+            }
+            state.rarityRates = rates;
+            saveDB();
+            renderRarityRateSettings();
+            alert('บันทึกอัตราสุ่มเรียบร้อยแล้ว');
+        }
+
+        function resetRarityRates() {
+            if (!state.currentUser || state.currentUser.role !== 'superadmin') return;
+            state.rarityRates = { ...DEFAULT_RARITY_RATES };
+            saveDB();
+            renderRarityRateSettings();
+            alert('คืนค่าอัตราสุ่มเรียบร้อยแล้ว');
+        }
+
+        function renderRefundRateSettings() {
+            if (!state.currentUser || state.currentUser.role !== 'superadmin') return;
+            const list = document.getElementById('sa-refund-rates-list');
+            if (!list) return;
+            const refunds = { ...DEFAULT_REFUND_RATES, ...(state.refundRates || {}) };
+            list.innerHTML = RARITY_LEVELS.map((item, index) => `
+                <label class="glass-panel p-2.5 rounded-xl flex items-center justify-between gap-2 text-xs">
+                    <span class="font-bold text-slate-200 truncate" title="${item.name}">${item.name}</span>
+                    <span class="flex items-center gap-1 shrink-0">
+                        <input id="sa-refund-rate-${index}" type="number" min="0" max="100" step="1" value="${Number(refunds[item.name] ?? item.defaultRefundPct)}" class="w-16 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-right text-amber-300 font-bold">
+                        <span class="text-slate-400 text-[10px]">% คืน</span>
+                    </span>
+                </label>
+            `).join('');
+        }
+
+        function saveRefundRates() {
+            if (!state.currentUser || state.currentUser.role !== 'superadmin') return;
+            const refunds = {};
+            for (let index = 0; index < RARITY_LEVELS.length; index++) {
+                const item = RARITY_LEVELS[index];
+                const input = document.getElementById(`sa-refund-rate-${index}`);
+                const value = input ? Number(input.value) : NaN;
+                if (!Number.isFinite(value) || value < 0 || value > 100) {
+                    alert(`กรุณากรอก % คืนเงินของ ${item.name} ระหว่าง 0 ถึง 100`);
+                    return;
+                }
+                refunds[item.name] = value;
+            }
+            state.refundRates = refunds;
+            saveDB();
+            renderRefundRateSettings();
+            alert('บันทึก % การคืนเงินย่อยการ์ดซ้ำเรียบร้อยแล้ว!');
+        }
+
+        function resetRefundRates() {
+            if (!state.currentUser || state.currentUser.role !== 'superadmin') return;
+            state.refundRates = { ...DEFAULT_REFUND_RATES };
+            saveDB();
+            renderRefundRateSettings();
+            alert('คืนค่า % การคืนเงินเรียบร้อยแล้ว');
+        }
+
+        function updateUI() {
+            const h = document.getElementById('user-header-info');
+            if (state.currentUser) {
+                h.innerHTML = `
+                    <div class="flex items-center space-x-1.5 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-xl">
+                        <i class="fa-solid fa-coins text-amber-400"></i>
+                        <span class="font-extrabold text-amber-300 text-sm">${state.currentUser.coins.toLocaleString()}</span>
+                    </div>
+                    <button onclick="openAuth()" class="glass-panel px-3 py-1.5 rounded-xl text-xs font-bold text-slate-200">${state.currentUser.name}</button>
+                `;
+                const adm = document.getElementById('nav-admin');
+                if (['admin','superadmin'].includes(state.currentUser.role)) adm.classList.remove('hidden');
+                else adm.classList.add('hidden');
+            } else {
+                h.innerHTML = `<button onclick="openAuth()" class="px-4 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl">เข้าสู่ระบบ</button>`;
+            }
+        }
+
+        function openAuth() { initAuth(); document.getElementById('auth-modal').classList.remove('hidden'); }
+
+        window.onload = () => {
+            loadDB(); 
+            initAuth(); 
+            updateUI();
+            if (window.initCloudSync) window.initCloudSync();
+            if (!state.currentUser) openAuth();
+            fetchLocalManifest();
+        };
+    </script>
+</body>
+</html>
