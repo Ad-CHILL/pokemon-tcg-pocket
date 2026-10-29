@@ -1,0 +1,10 @@
+{
+  "name": "pokemon-tcg-pocket",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "node scripts/download-data.js && vite build"
+  },
+  "dependencies": {
+    "node-unrar-js": "^2.0.2"
+  }
+}
